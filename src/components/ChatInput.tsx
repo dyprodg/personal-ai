@@ -16,7 +16,9 @@ export default function ChatInput({
     if (textarea) {
       textarea.style.height = "0";
       const scrollHeight = textarea.scrollHeight;
-      textarea.style.height = scrollHeight + "px";
+      // Only auto-resize up to max-height, after that enable scrolling
+      const maxHeight = 200;
+      textarea.style.height = Math.min(scrollHeight, maxHeight) + "px";
     }
   }, [message]);
 
@@ -50,7 +52,7 @@ export default function ChatInput({
           placeholder={
             disabled ? "Please wait..." : "Type your message here..."
           }
-          className={`flex-1 border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-hidden min-h-[40px] max-h-[200px] ${
+          className={`flex-1 border rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none overflow-auto min-h-[40px] max-h-[200px] ${
             disabled ? "bg-gray-100 cursor-not-allowed" : ""
           }`}
           style={{ resize: "none" }}

@@ -16,6 +16,17 @@ export default function ChatMessage({
 }: MessageProps) {
   // Client-side only time formatting to avoid hydration mismatch
   const [formattedTime, setFormattedTime] = useState<string>("");
+  const [copied, setCopied] = useState(false);
+
+  const copyToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(content);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy message: ", err);
+    }
+  };
 
   useEffect(() => {
     try {
@@ -64,12 +75,50 @@ export default function ChatMessage({
           </div>
         )}
         <div
-          className={`text-xs mt-2 ${
+          className={`flex justify-between items-center mt-2 text-xs ${
             isUser ? "text-blue-200" : "text-gray-500"
           }`}
           suppressHydrationWarning
         >
-          {formattedTime}
+          <span>{formattedTime}</span>
+          <button
+            onClick={copyToClipboard}
+            className={`p-1 rounded hover:bg-opacity-20 ${
+              isUser ? "hover:bg-blue-500" : "hover:bg-gray-200"
+            }`}
+            title="Copy message"
+          >
+            {copied ? (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M20 6L9 17l-5-5" />
+              </svg>
+            ) : (
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
     </div>
