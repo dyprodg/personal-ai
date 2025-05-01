@@ -209,12 +209,12 @@ export default function PrivateChatPage() {
         <span className="text-purple-800 font-medium text-sm">
           Private Mode
         </span>
-        <span className="ml-2 text-purple-600 text-xs">
+        <span className="ml-2 text-purple-600 text-xs hidden sm:inline">
           Your conversation will not be saved
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50">
         {messages.map((message) => (
           <ChatMessage
             key={message.id}
@@ -226,7 +226,7 @@ export default function PrivateChatPage() {
 
         {isError && (
           <div className="flex justify-center my-4">
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg max-w-[80%] text-center">
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg max-w-[90%] sm:max-w-[80%] text-center">
               <p>An error occurred. Please try again.</p>
             </div>
           </div>
@@ -234,7 +234,7 @@ export default function PrivateChatPage() {
 
         {isLoading && (
           <div className="flex justify-start mb-4">
-            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[80%]">
+            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[90%] sm:max-w-[80%]">
               <div className="flex space-x-2">
                 <div
                   className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -255,7 +255,7 @@ export default function PrivateChatPage() {
 
         {isStreaming && (
           <div className="flex justify-start mb-4">
-            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[80%]">
+            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[90%] sm:max-w-[80%]">
               <div className="inline-block w-1.5 h-4 bg-gray-400 animate-blink"></div>
             </div>
           </div>

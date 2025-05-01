@@ -12,11 +12,13 @@ import {
 import { ChatHistoryPreview } from "@/types/chat";
 
 export default function Sidebar() {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
   const [chats, setChats] = useState<ChatHistoryPreview[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newTitle, setNewTitle] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [chatToDelete, setChatToDelete] = useState<string | null>(null);
 
   const pathname = usePathname();
   const router = useRouter();
@@ -74,22 +76,31 @@ export default function Sidebar() {
     }
   };
 
+  // Show delete confirmation dialog
+  const showDeleteConfirmation = (chatId: string) => {
+    setChatToDelete(chatId);
+    setShowDeleteConfirm(true);
+  };
+
   // Delete a chat
-  const handleDelete = async (chatId: string) => {
-    if (!confirm("Are you sure you want to delete this conversation?")) return;
+  const handleDelete = async () => {
+    if (!chatToDelete) return;
 
     try {
-      await deleteChatHistory(chatId);
+      await deleteChatHistory(chatToDelete);
       // Refresh the chat list
       const histories = await getChatHistories();
       setChats(histories);
 
       // Redirect to main chat page if the current chat was deleted
-      if (pathname === `/chat/${chatId}`) {
+      if (pathname === `/chat/${chatToDelete}`) {
         router.push("/chat");
       }
     } catch (error) {
       console.error("Failed to delete chat:", error);
+    } finally {
+      setShowDeleteConfirm(false);
+      setChatToDelete(null);
     }
   };
 
@@ -104,14 +115,37 @@ export default function Sidebar() {
   };
 
   return (
-    <div
-      className={`h-full transition-all duration-300 flex ${
-        isOpen ? "w-64" : "w-12"
-      }`}
-    >
+    <div className="h-full fixed left-0 top-0 z-30">
+      {/* Delete confirmation modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-transparent bg-opacity-30 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-6 shadow-lg max-w-sm mx-4 animate-fadeIn">
+            <h3 className="text-lg font-medium mb-3">Delete Conversation</h3>
+            <p className="text-gray-600 mb-5">
+              Are you sure you want to delete this conversation? This action
+              cannot be undone.
+            </p>
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowDeleteConfirm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors text-sm"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-4 py-2 bg-red-600 rounded-md text-white hover:bg-red-700 transition-colors text-sm"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         className={`bg-white border-r shadow-sm h-full ${
-          isOpen ? "w-64" : "w-12"
+          isOpen ? "w-64" : "w-0"
         } transition-all duration-300 flex flex-col`}
       >
         {isOpen ? (
@@ -300,7 +334,7 @@ export default function Sidebar() {
                             </svg>
                           </button>
                           <button
-                            onClick={() => handleDelete(chat.id)}
+                            onClick={() => showDeleteConfirmation(chat.id)}
                             className="p-1 rounded hover:bg-gray-200 text-gray-500"
                             title="Delete"
                           >

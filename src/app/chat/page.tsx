@@ -41,23 +41,23 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex-1 flex items-center justify-center p-6">
-      <div className="max-w-xl w-full bg-white rounded-2xl shadow-md p-8 border border-gray-200">
-        <h1 className="text-4xl font-bold text-center mb-10 text-blue-500">
+    <div className="flex-1 flex items-center justify-center p-4">
+      <div className="max-w-md w-full bg-white rounded-lg shadow-md p-6 border border-gray-200">
+        <h1 className="text-2xl font-bold text-center mb-6 text-blue-600">
           Choose Chat Mode
         </h1>
 
-        <div className="space-y-8">
-          <div
+        <div className="flex flex-col gap-4">
+          <button
             onClick={() => handleModeSelection("normal")}
-            className="border border-gray-200 rounded-xl p-6 hover:border-blue-300 hover:shadow cursor-pointer transition-all"
+            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all"
           >
-            <div className="flex items-start mb-4">
-              <div className="mr-4 mt-1 h-8 w-8 flex items-center justify-center rounded-md bg-blue-100 text-blue-600">
+            <div className="flex items-center">
+              <div className="h-8 w-8 flex items-center justify-center rounded-full bg-blue-100 text-blue-600 mr-3">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -69,52 +69,37 @@ export default function ChatPage() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-blue-600 mb-3">
-                  Normal Chat
-                </h2>
-                <p className="text-gray-600 mb-4">
-                  Your conversation will be saved in your chat history for
-                  future reference.
-                </p>
+                <h2 className="font-semibold text-blue-600">Normal</h2>
+                <p className="text-sm text-gray-600">Stores chats encrypted</p>
               </div>
             </div>
-            <ul className="space-y-3 text-gray-600 ml-12">
-              {[
-                "Conversation is saved to your account",
-                "Access chat history from anywhere",
-                "Revisit and continue conversations",
-              ].map((item, index) => (
-                <li key={index} className="flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-2 text-gray-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
+            <div className="text-blue-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
+          </button>
 
-          <div
+          <button
             onClick={() => handleModeSelection("private")}
-            className="border border-gray-200 rounded-xl p-6 hover:border-purple-300 hover:shadow cursor-pointer transition-all"
+            className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all"
           >
-            <div className="flex items-start mb-4">
-              <div className="mr-4 mt-1 h-8 w-8 flex items-center justify-center rounded-md bg-purple-100 text-purple-600">
+            <div className="flex items-center">
+              <div className="h-8 w-8 flex items-center justify-center rounded-full bg-purple-100 text-purple-600 mr-3">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
-                  width="18"
-                  height="18"
+                  width="16"
+                  height="16"
                   viewBox="0 0 24 24"
                   fill="none"
                   stroke="currentColor"
@@ -134,44 +119,26 @@ export default function ChatPage() {
                 </svg>
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-purple-600 mb-3">
-                  Private Chat
-                </h2>
-                <p className="text-gray-600 mb-4">
-                  Your conversation will not be saved after you close the chat.
-                </p>
+                <h2 className="font-semibold text-purple-600">Private</h2>
+                <p className="text-sm text-gray-600">Stores nothing at all</p>
               </div>
             </div>
-            <ul className="space-y-3 text-gray-600 ml-12">
-              {[
-                "No persistent chat history",
-                "More privacy for sensitive topics",
-                "Not accessible after session ends",
-              ].map((item, index) => (
-                <li key={index} className="flex items-center">
-                  <svg
-                    className="w-4 h-4 mr-2 text-gray-400"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth="2"
-                      d="M5 13l4 4L19 7"
-                    />
-                  </svg>
-                  {item}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </div>
-
-        <div className="mt-10 text-center text-sm text-gray-500">
-          <p>You can change your default chat mode in settings.</p>
+            <div className="text-purple-600">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 18l6-6-6-6" />
+              </svg>
+            </div>
+          </button>
         </div>
       </div>
     </div>

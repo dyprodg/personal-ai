@@ -1,51 +1,31 @@
-import Link from "next/link";
-import {
-  SignInButton,
-  SignUpButton,
-  UserButton,
-  SignedIn,
-  SignedOut,
-} from "@clerk/nextjs";
-import LegalLinksDropdown from "./LegalLinksDropdown";
+"use client";
+
+import { useState, useEffect } from "react";
+import MobileNavbar from "./MobileNavbar";
+import DesktopNavbar from "./DesktopNavbar";
 
 export default function Navbar() {
-  return (
-    <header className="flex justify-between items-center p-4 gap-4 h-16 border-b bg-white">
-      <Link href="/" className="text-xl font-semibold flex items-center gap-2">
-        <span className="text-blue-600">Bloomweaver</span>
-        <span>AI Chat</span>
-      </Link>
+  const [isMobile, setIsMobile] = useState(false);
 
-      <div className="flex gap-4 items-center">
-        <LegalLinksDropdown />
-        <SignedOut>
-          <SignInButton mode="modal">
-            <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">
-              Sign In
-            </button>
-          </SignInButton>
-          <SignUpButton mode="modal">
-            <button className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700">
-              Sign Up
-            </button>
-          </SignUpButton>
-        </SignedOut>
-        <SignedIn>
-          <Link
-            href="/chat"
-            className="px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-md hover:bg-blue-700"
-          >
-            Chat Now
-          </Link>
-          <Link
-            href="/dashboard"
-            className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900"
-          >
-            Dashboard
-          </Link>
-          <UserButton afterSignOutUrl="/" />
-        </SignedIn>
-      </div>
+  // Initialize with correct value on mount and update on resize
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobile(window.innerWidth < 768); // md breakpoint is 768px
+    };
+
+    // Initial check
+    checkScreenSize();
+
+    // Add event listener for window resize
+    window.addEventListener("resize", checkScreenSize);
+
+    // Cleanup
+    return () => window.removeEventListener("resize", checkScreenSize);
+  }, []);
+
+  return (
+    <header className="border-b bg-white">
+      {isMobile ? <MobileNavbar /> : <DesktopNavbar />}
     </header>
   );
 }

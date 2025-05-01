@@ -40,9 +40,7 @@ export default function ChatPage({
           }
           return;
         }
-
-        // Add logging to check the loaded messages
-        console.log("Loaded chat history:", chat);
+        
         if (chat.messages && chat.messages.length > 0) {
           console.log(
             `First message content: "${chat.messages[0].content.substring(
@@ -295,8 +293,8 @@ export default function ChatPage({
 
   if (isChatNotFound) {
     return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="bg-red-50 text-red-700 p-6 rounded-lg max-w-md text-center">
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="bg-red-50 text-red-700 p-6 rounded-lg max-w-[95%] sm:max-w-md text-center">
           <h3 className="text-xl font-semibold mb-2">Chat not found</h3>
           <p>
             This chat session could not be found. You will be redirected to the
@@ -315,7 +313,7 @@ export default function ChatPage({
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50">
         {messages.map((message) => (
           <ChatMessage
             key={message.id}
@@ -327,10 +325,12 @@ export default function ChatPage({
 
         {isError && (
           <div className="flex justify-center my-4">
-            <div className="bg-red-50 text-red-700 p-3 rounded-lg max-w-[80%] text-center">
+            <div className="bg-red-50 text-red-700 p-3 rounded-lg max-w-[90%] sm:max-w-[80%] text-center">
               <p>An error occurred. Please try again.</p>
               {debugInfo && (
-                <p className="text-xs mt-2 text-red-500">{debugInfo}</p>
+                <p className="text-xs mt-2 text-red-500 break-words">
+                  {debugInfo}
+                </p>
               )}
             </div>
           </div>
@@ -338,7 +338,7 @@ export default function ChatPage({
 
         {isLoading && (
           <div className="flex justify-start mb-4">
-            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[80%]">
+            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[90%] sm:max-w-[80%]">
               <div className="flex space-x-2">
                 <div
                   className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
@@ -359,7 +359,7 @@ export default function ChatPage({
 
         {isStreaming && (
           <div className="flex justify-start mb-4">
-            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[80%]">
+            <div className="bg-gray-100 text-gray-800 p-3 rounded-lg rounded-bl-none max-w-[90%] sm:max-w-[80%]">
               <div className="inline-block w-1.5 h-4 bg-gray-400 animate-blink"></div>
             </div>
           </div>
