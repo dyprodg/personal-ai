@@ -57,7 +57,7 @@ export async function getChatHistories(): Promise<ChatHistoryPreview[]> {
       if (!encryptedChat) return null;
       
       try {
-        return decrypt(encryptedChat) as ChatHistory;
+        return decrypt<ChatHistory>(encryptedChat);
       } catch (error) {
         console.error(`Error decrypting chat ${chatId}:`, error);
         return null;
@@ -114,7 +114,7 @@ export async function getChatHistory(chatId: string): Promise<ChatHistory | null
   if (!encryptedChat) return null;
   
   try {
-    return decrypt(encryptedChat) as ChatHistory;
+    return decrypt<ChatHistory>(encryptedChat);
   } catch (error) {
     console.error(`Error decrypting chat ${chatId}:`, error);
     return null;
@@ -196,7 +196,7 @@ export async function createChatHistory(title: string = 'New conversation', isPr
     console.log(`Creating new chat with ID ${id} for user ${userId}`);
     try {
       // Encrypt and save the chat history
-      const encryptedChat = encrypt(chat);
+      const encryptedChat = encrypt<ChatHistory>(chat);
       await redis.set(`chat:${id}`, encryptedChat);
       
       // Add the chat ID to the user's set of chats
@@ -273,7 +273,7 @@ export async function updateChatHistory(
           messages: [], // We'll update with the provided messages later
         };
         
-        const encryptedNewChat = encrypt(newChat);
+        const encryptedNewChat = encrypt<ChatHistory>(newChat);
         await redis.set(`chat:${chatId}`, encryptedNewChat);
         await redis.sadd(`user:${userId}:chats`, chatId);
         return true;
@@ -305,7 +305,7 @@ export async function updateChatHistory(
     // Decrypt the chat
     let chat: ChatHistory;
     try {
-      chat = decrypt(encryptedChat) as ChatHistory;
+      chat = decrypt<ChatHistory>(encryptedChat);
     } catch (error) {
       console.error(`Failed to decrypt chat ${chatId}:`, error);
       throw new Error('Failed to decrypt chat data');
@@ -319,7 +319,7 @@ export async function updateChatHistory(
 
     // Update with retry
     await retryOperation(async () => {
-      const encryptedUpdatedChat = encrypt(updatedChat);
+      const encryptedUpdatedChat = encrypt<ChatHistory>(updatedChat);
       await redis.set(`chat:${chatId}`, encryptedUpdatedChat);
       console.log(`Successfully updated chat ${chatId}`);
     }, 3, 500);
@@ -377,7 +377,7 @@ export async function renameChatHistory(chatId: string, title: string): Promise<
   // Decrypt the chat
   let chat: ChatHistory;
   try {
-    chat = decrypt(encryptedChat) as ChatHistory;
+    chat = decrypt<ChatHistory>(encryptedChat);
   } catch (error) {
     console.error(`Failed to decrypt chat ${chatId}:`, error);
     throw new Error('Failed to decrypt chat data');
@@ -389,7 +389,7 @@ export async function renameChatHistory(chatId: string, title: string): Promise<
     title,
   };
 
-  const encryptedUpdatedChat = encrypt(updatedChat);
+  const encryptedUpdatedChat = encrypt<ChatHistory>(updatedChat);
   await redis.set(`chat:${chatId}`, encryptedUpdatedChat);
   revalidatePath('/chat');
   revalidatePath(`/chat/${chatId}`);

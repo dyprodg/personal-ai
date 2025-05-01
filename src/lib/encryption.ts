@@ -2,10 +2,10 @@ import crypto from 'crypto';
 
 /**
  * Encrypts data using AES-256-CBC with a random IV
- * @param data Any data that can be serialized to JSON
+ * @param data Object to encrypt
  * @returns Encrypted string in format "iv:encryptedData"
  */
-export function encrypt(data: any): string {
+export function encrypt<T>(data: T): string {
   // Get encryption key from environment variable
   const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
   if (!ENCRYPTION_KEY) {
@@ -36,7 +36,7 @@ export function encrypt(data: any): string {
  * @param encryptedData String in format "iv:encryptedData"
  * @returns Decrypted and parsed data
  */
-export function decrypt(encryptedData: string): any {
+export function decrypt<T>(encryptedData: string): T {
   // Get encryption key from environment variable
   const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY;
   if (!ENCRYPTION_KEY) {
@@ -64,5 +64,5 @@ export function decrypt(encryptedData: string): any {
   decrypted += decipher.final('utf8');
   
   // Parse the JSON data
-  return JSON.parse(decrypted);
+  return JSON.parse(decrypted) as T;
 } 

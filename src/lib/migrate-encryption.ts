@@ -8,6 +8,27 @@
 import { redis } from './redis';
 import { encrypt } from './encryption';
 import { ChatHistory } from '@/types/chat';
+import { Redis } from '@upstash/redis';
+
+// Helper function to find chat keys by prefix without using redis.keys 
+// which might not be available in all Redis implementations
+async function findChatKeys(pattern: string): Promise<string[]> {
+  try {
+    // If we're using actual Redis (not the local fallback), we can use the keys command
+    if ('keys' in redis) {
+      // Use type assertion for the Redis client
+      return await (redis as Redis).keys(pattern);
+    }
+    
+    // For the local storage fallback, we can just return an empty array
+    // since we can't iterate through all keys easily
+    console.log('Using local storage fallback - cannot scan for chat keys');
+    return [];
+  } catch (error) {
+    console.error('Error finding chat keys:', error);
+    return [];
+  }
+}
 
 export async function migrateChatsToEncrypted() {
   console.log('Starting migration of chat data to encrypted format...');
@@ -16,7 +37,7 @@ export async function migrateChatsToEncrypted() {
 
   try {
     // Get all chat keys from Redis
-    const keys = await redis.keys('chat:*');
+    const keys = await findChatKeys('chat:*');
     console.log(`Found ${keys.length} chat keys to process`);
 
     for (const key of keys) {
@@ -47,7 +68,7 @@ export async function migrateChatsToEncrypted() {
         }
 
         // Encrypt the chat data
-        const encryptedChat = encrypt(chatData);
+        const encryptedChat = encrypt<ChatHistory>(chatData);
         
         // Save the encrypted data back to Redis
         await redis.set(key, encryptedChat);
