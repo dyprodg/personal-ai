@@ -6,6 +6,7 @@ import { randomUUID } from 'crypto';
 import { redis } from '@/lib/redis';
 import { ChatHistory, ChatHistoryPreview, Message } from '@/types/chat';
 import { recordNewChat } from '@/lib/stats';
+import { encrypt, decrypt } from '@/lib/encryption';
 
 // Helper function for retry logic
 async function retryOperation<T>(
@@ -50,16 +51,25 @@ export async function getChatHistories(): Promise<ChatHistoryPreview[]> {
   }
 
   // Get all chat histories
-  const chats: ChatHistory[] = await Promise.all(
+  const chatResults = await Promise.all(
     chatKeys.map(async (chatId) => {
-      const chat = await redis.get<ChatHistory>(`chat:${chatId}`);
-      return chat as ChatHistory;
+      const encryptedChat = await redis.get<string>(`chat:${chatId}`);
+      if (!encryptedChat) return null;
+      
+      try {
+        return decrypt(encryptedChat) as ChatHistory;
+      } catch (error) {
+        console.error(`Error decrypting chat ${chatId}:`, error);
+        return null;
+      }
     })
   );
 
+  // Filter out nulls and create preview
+  const chats = chatResults.filter((chat): chat is ChatHistory => chat !== null);
+
   // Create preview of each chat
   return chats
-    .filter(Boolean)
     .map((chat) => ({
       id: chat.id,
       title: chat.title,
@@ -100,8 +110,15 @@ export async function getChatHistory(chatId: string): Promise<ChatHistory | null
     return null;
   }
 
-  const chat = await redis.get<ChatHistory>(`chat:${chatId}`);
-  return chat;
+  const encryptedChat = await redis.get<string>(`chat:${chatId}`);
+  if (!encryptedChat) return null;
+  
+  try {
+    return decrypt(encryptedChat) as ChatHistory;
+  } catch (error) {
+    console.error(`Error decrypting chat ${chatId}:`, error);
+    return null;
+  }
 }
 
 // In-memory storage for private chats (will be lost on server restart)
@@ -178,8 +195,9 @@ export async function createChatHistory(title: string = 'New conversation', isPr
     // Store normal chat in Redis
     console.log(`Creating new chat with ID ${id} for user ${userId}`);
     try {
-      // Save the chat history
-      await redis.set(`chat:${id}`, chat);
+      // Encrypt and save the chat history
+      const encryptedChat = encrypt(chat);
+      await redis.set(`chat:${id}`, encryptedChat);
       
       // Add the chat ID to the user's set of chats
       await redis.sadd(`user:${userId}:chats`, id);
@@ -237,8 +255,8 @@ export async function updateChatHistory(
     // Try to ensure the chat exists in user's set first with a retry mechanism
     const ensureChatExists = async () => {
       // First check if the chat exists by trying to get it
-      const chatData = await redis.get<ChatHistory>(`chat:${chatId}`);
-      const chatExists = chatData !== null;
+      const encryptedChat = await redis.get<string>(`chat:${chatId}`);
+      const chatExists = encryptedChat !== null;
       
       if (!chatExists) {
         console.log(`Chat ${chatId} doesn't exist, attempting to recreate`);
@@ -255,7 +273,8 @@ export async function updateChatHistory(
           messages: [], // We'll update with the provided messages later
         };
         
-        await redis.set(`chat:${chatId}`, newChat);
+        const encryptedNewChat = encrypt(newChat);
+        await redis.set(`chat:${chatId}`, encryptedNewChat);
         await redis.sadd(`user:${userId}:chats`, chatId);
         return true;
       }
@@ -275,12 +294,21 @@ export async function updateChatHistory(
     await retryOperation(ensureChatExists, 3, 500);
 
     // Now get the chat data
-    const chat = await redis.get<ChatHistory>(`chat:${chatId}`);
+    const encryptedChat = await redis.get<string>(`chat:${chatId}`);
     
-    if (!chat) {
+    if (!encryptedChat) {
       // This shouldn't happen now that we have the ensure function above
       console.error(`Chat not found despite ensuring it exists: ${chatId}`);
       throw new Error('Chat not found');
+    }
+
+    // Decrypt the chat
+    let chat: ChatHistory;
+    try {
+      chat = decrypt(encryptedChat) as ChatHistory;
+    } catch (error) {
+      console.error(`Failed to decrypt chat ${chatId}:`, error);
+      throw new Error('Failed to decrypt chat data');
     }
 
     const updatedChat: ChatHistory = {
@@ -291,7 +319,8 @@ export async function updateChatHistory(
 
     // Update with retry
     await retryOperation(async () => {
-      await redis.set(`chat:${chatId}`, updatedChat);
+      const encryptedUpdatedChat = encrypt(updatedChat);
+      await redis.set(`chat:${chatId}`, encryptedUpdatedChat);
       console.log(`Successfully updated chat ${chatId}`);
     }, 3, 500);
     
@@ -339,10 +368,19 @@ export async function renameChatHistory(chatId: string, title: string): Promise<
     throw new Error('Unauthorized');
   }
 
-  const chat = await redis.get<ChatHistory>(`chat:${chatId}`);
+  const encryptedChat = await redis.get<string>(`chat:${chatId}`);
   
-  if (!chat) {
+  if (!encryptedChat) {
     throw new Error('Chat not found');
+  }
+
+  // Decrypt the chat
+  let chat: ChatHistory;
+  try {
+    chat = decrypt(encryptedChat) as ChatHistory;
+  } catch (error) {
+    console.error(`Failed to decrypt chat ${chatId}:`, error);
+    throw new Error('Failed to decrypt chat data');
   }
 
   const updatedChat: ChatHistory = {
@@ -351,7 +389,8 @@ export async function renameChatHistory(chatId: string, title: string): Promise<
     title,
   };
 
-  await redis.set(`chat:${chatId}`, updatedChat);
+  const encryptedUpdatedChat = encrypt(updatedChat);
+  await redis.set(`chat:${chatId}`, encryptedUpdatedChat);
   revalidatePath('/chat');
   revalidatePath(`/chat/${chatId}`);
 }

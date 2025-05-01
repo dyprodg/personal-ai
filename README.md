@@ -13,6 +13,7 @@ A modern AI assistant platform with user authentication and protected content.
 - Interactive chat with code highlighting
 - Markdown rendering for rich AI responses
 - Redis/Upstash KV for chat history persistence
+- End-to-end encryption for chat data stored in Redis
 
 ## Getting Started
 
@@ -52,7 +53,22 @@ A modern AI assistant platform with user authentication and protected content.
      KV_REST_API_READ_ONLY_TOKEN=your_read_only_token
      ```
 
-6. Run the development server:
+6. Set up Encryption (required for chat data security):
+   - Generate a strong encryption key (at least 32 characters)
+   - Add it to your `.env.local` file:
+     ```
+     ENCRYPTION_KEY=your_very_strong_and_secure_encryption_key_here
+     ```
+   - You can generate a secure key with:
+     ```bash
+     node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+     ```
+   - If upgrading from a previous version, migrate existing chats:
+     ```bash
+     npx ts-node scripts/migrate-to-encrypted.ts
+     ```
+
+7. Run the development server:
    ```bash
    npm run dev
    ```
@@ -88,6 +104,11 @@ npm run build
 - Make sure your KV_REST_API_URL and KV_REST_API_TOKEN are correctly set in your `.env.local` file
 - Check that your Redis database is properly created and accessible
 - For local development, the app will fall back to in-memory storage if Redis credentials are missing
+
+### Encryption Issues
+- Ensure the ENCRYPTION_KEY environment variable is set in your `.env.local` file
+- If you see "ENCRYPTION_KEY environment variable is not set" errors, check that the key is available in your environment
+- For deployment, make sure to add the ENCRYPTION_KEY to your environment variables in your hosting provider
 
 ## License
 
