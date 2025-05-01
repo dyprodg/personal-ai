@@ -63,6 +63,41 @@ class LocalStorageFallback {
     const set = new Set(this.storage.get(key) as string[] || []);
     return set.has(member) ? 1 : 0;
   }
+
+  // Add pipeline functionality
+  pipeline() {
+    const operations: Array<() => Promise<unknown>> = [];
+    
+    return {
+      incr: (key: string) => {
+        operations.push(async () => {
+          const currentValue = Number(await this.get(key) || 0);
+          await this.set(key, currentValue + 1);
+          return currentValue + 1;
+        });
+        return this;
+      },
+      incrby: (key: string, value: number) => {
+        operations.push(async () => {
+          const currentValue = Number(await this.get(key) || 0);
+          await this.set(key, currentValue + value);
+          return currentValue + value;
+        });
+        return this;
+      },
+      exec: async () => {
+        const results = [];
+        for (const operation of operations) {
+          try {
+            results.push([null, await operation()]);
+          } catch (error) {
+            results.push([error, null]);
+          }
+        }
+        return results;
+      }
+    };
+  }
 }
 
 // Get the Redis URL from environment variables

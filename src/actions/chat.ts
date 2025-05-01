@@ -5,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import { randomUUID } from 'crypto';
 import { redis } from '@/lib/redis';
 import { ChatHistory, ChatHistoryPreview, Message } from '@/types/chat';
+import { recordNewChat } from '@/lib/stats';
 
 // Helper function for retry logic
 async function retryOperation<T>(
@@ -82,6 +83,15 @@ export async function getChatHistory(chatId: string): Promise<ChatHistory | null
     return null;
   }
 
+  // Check if this is a private chat (not stored in Redis)
+  if (chatId.startsWith('private-')) {
+    const privateChat = getPrivateChat(chatId);
+    if (privateChat && privateChat.userId === userId) {
+      return privateChat;
+    }
+    return null;
+  }
+
   // Check if this chat belongs to the user
   const isMember = await redis.sismember(`user:${userId}:chats`, chatId);
   
@@ -94,10 +104,34 @@ export async function getChatHistory(chatId: string): Promise<ChatHistory | null
   return chat;
 }
 
+// In-memory storage for private chats (will be lost on server restart)
+const privateChats = new Map<string, ChatHistory>();
+
+/**
+ * Get a private chat from memory
+ */
+function getPrivateChat(chatId: string): ChatHistory | null {
+  // Check if chat exists in memory
+  if (privateChats.has(chatId)) {
+    return privateChats.get(chatId) || null;
+  }
+  
+  // For server rehydration, no need to try to read cookies
+  // This is because we're in a server context
+  return null;
+}
+
+/**
+ * Store a private chat in memory
+ */
+function storePrivateChat(chat: ChatHistory): void {
+  privateChats.set(chat.id, chat);
+}
+
 /**
  * Create a new chat history
  */
-export async function createChatHistory(title: string = 'New conversation'): Promise<string> {
+export async function createChatHistory(title: string = 'New conversation', isPrivate: boolean = false): Promise<string> {
   const { userId } = await auth();
   
   if (!userId) {
@@ -105,8 +139,9 @@ export async function createChatHistory(title: string = 'New conversation'): Pro
     throw new Error('Unauthorized');
   }
 
-  const id = randomUUID();
   const now = new Date();
+  // For private chats, use a prefix to differentiate them
+  const id = isPrivate ? `private-${randomUUID()}` : randomUUID();
 
   const chat: ChatHistory = {
     id,
@@ -114,6 +149,7 @@ export async function createChatHistory(title: string = 'New conversation'): Pro
     userId,
     createdAt: now,
     updatedAt: now,
+    isPrivate,
     messages: [{
       id: '1',
       content: 'Hello! How can I assist you today?',
@@ -123,20 +159,37 @@ export async function createChatHistory(title: string = 'New conversation'): Pro
     }],
   };
 
-  console.log(`Creating new chat with ID ${id} for user ${userId}`);
+  // Record new chat creation in stats (only for persistent chats)
+  if (!isPrivate) {
+    await recordNewChat();
+  }
 
-  try {
-    // Save the chat history
-    await redis.set(`chat:${id}`, chat);
+  if (isPrivate) {
+    // Store private chat in memory
+    console.log(`Creating new private chat with ID ${id} for user ${userId}`);
+    storePrivateChat(chat);
     
-    // Add the chat ID to the user's set of chats
-    await redis.sadd(`user:${userId}:chats`, id);
-  
+    // Make sure to revalidate paths for private chats too
     revalidatePath('/chat');
+    revalidatePath(`/chat/${id}`);
+    
     return id;
-  } catch (error) {
-    console.error("Error creating chat history:", error);
-    throw error;
+  } else {
+    // Store normal chat in Redis
+    console.log(`Creating new chat with ID ${id} for user ${userId}`);
+    try {
+      // Save the chat history
+      await redis.set(`chat:${id}`, chat);
+      
+      // Add the chat ID to the user's set of chats
+      await redis.sadd(`user:${userId}:chats`, id);
+    
+      revalidatePath('/chat');
+      return id;
+    } catch (error) {
+      console.error("Error creating chat history:", error);
+      throw error;
+    }
   }
 }
 
@@ -155,6 +208,28 @@ export async function updateChatHistory(
     if (!userId) {
       console.error("updateChatHistory: No userId found");
       throw new Error('Unauthorized: No user ID');
+    }
+
+    // Handle private chats differently
+    if (chatId.startsWith('private-')) {
+      const privateChat = getPrivateChat(chatId);
+      
+      if (!privateChat) {
+        console.error(`Private chat not found: ${chatId}`);
+        throw new Error('Chat not found');
+      }
+      
+      if (privateChat.userId !== userId) {
+        console.error(`User ${userId} not authorized for private chat ${chatId}`);
+        throw new Error('Unauthorized');
+      }
+      
+      // Update the private chat in memory
+      privateChat.messages = messages;
+      privateChat.updatedAt = new Date();
+      storePrivateChat(privateChat);
+      
+      return;
     }
 
     console.log(`User ID: ${userId}, Chat ID: ${chatId}`);
@@ -176,6 +251,7 @@ export async function updateChatHistory(
           userId,
           createdAt: now,
           updatedAt: now,
+          isPrivate: false,
           messages: [], // We'll update with the provided messages later
         };
         
@@ -237,6 +313,25 @@ export async function renameChatHistory(chatId: string, title: string): Promise<
     throw new Error('Unauthorized');
   }
 
+  // Handle private chats
+  if (chatId.startsWith('private-')) {
+    const privateChat = getPrivateChat(chatId);
+    
+    if (!privateChat) {
+      throw new Error('Chat not found');
+    }
+    
+    if (privateChat.userId !== userId) {
+      throw new Error('Unauthorized');
+    }
+    
+    privateChat.title = title;
+    privateChat.updatedAt = new Date();
+    storePrivateChat(privateChat);
+    
+    return;
+  }
+
   // Check if this chat belongs to the user
   const isMember = await redis.sismember(`user:${userId}:chats`, chatId);
   
@@ -269,6 +364,24 @@ export async function deleteChatHistory(chatId: string): Promise<void> {
   
   if (!userId) {
     throw new Error('Unauthorized');
+  }
+
+  // Handle private chats
+  if (chatId.startsWith('private-')) {
+    const privateChat = getPrivateChat(chatId);
+    
+    if (!privateChat) {
+      throw new Error('Chat not found');
+    }
+    
+    if (privateChat.userId !== userId) {
+      throw new Error('Unauthorized');
+    }
+    
+    // Remove private chat from memory
+    privateChats.delete(chatId);
+    
+    return;
   }
 
   // Check if this chat belongs to the user

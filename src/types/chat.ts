@@ -13,6 +13,7 @@ export type ChatHistory = {
   createdAt: Date;
   updatedAt: Date;
   messages: Message[];
+  isPrivate?: boolean;
 };
 
 export type ChatHistoryPreview = {

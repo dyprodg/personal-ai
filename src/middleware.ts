@@ -1,7 +1,23 @@
-import { clerkMiddleware } from "@clerk/nextjs/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
-// This middleware protects all routes
-export default clerkMiddleware();
+// Define public routes that don't require authentication
+const isPublicRoute = createRouteMatcher([
+  "/",
+  "/sign-in(.*)",
+  "/sign-up(.*)",
+  "/terms(.*)",
+  "/privacy-policy(.*)",
+]);
+
+// This middleware protects all routes except public ones
+export default clerkMiddleware(async (auth, req) => {
+  if (!isPublicRoute(req)) {
+    await auth.protect();
+  }
+}, {
+  // Redirect unauthorized users to home page
+  signInUrl: "/"
+});
 
 export const config = {
   matcher: [

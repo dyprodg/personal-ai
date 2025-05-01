@@ -1,73 +1,30 @@
 "use client";
 
-import { useState, useRef, useEffect, use } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import ChatInput from "@/components/ChatInput";
 import ChatMessage from "@/components/ChatMessage";
-import { getChatHistory, updateChatHistory } from "@/actions/chat";
 import { Message } from "@/types/chat";
 
-export default function ChatPage({
-  params,
-}: {
-  params: Promise<{ chatId: string }>;
-}) {
-  const { chatId } = use(params);
+export default function PrivateChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isError, setIsError] = useState(false);
-  const [isChatNotFound, setIsChatNotFound] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const router = useRouter();
 
-  // Load chat history
+  // Initialize with welcome message
   useEffect(() => {
-    const loadChat = async () => {
-      try {
-        const chat = await getChatHistory(chatId);
-
-        if (!chat) {
-          console.error(`Chat not found: ${chatId}`);
-          // Chat not found or unauthorized
-          setIsChatNotFound(true);
-          // For private chats, redirect after a short delay to show error
-          if (chatId.startsWith("private-")) {
-            setTimeout(() => router.push("/chat"), 1500);
-          } else {
-            router.push("/chat");
-          }
-          return;
-        }
-
-        // Add logging to check the loaded messages
-        console.log("Loaded chat history:", chat);
-        if (chat.messages && chat.messages.length > 0) {
-          console.log(
-            `First message content: "${chat.messages[0].content.substring(
-              0,
-              50
-            )}..."`
-          );
-        }
-
-        setMessages(chat.messages);
-      } catch (error) {
-        console.error("Failed to load chat:", error);
-        setIsError(true);
-        setDebugInfo(
-          `Error loading chat: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadChat();
-  }, [chatId, router]);
+    setMessages([
+      {
+        id: "welcome",
+        content:
+          "Hello! This is a private chat session. Your conversation will not be saved after you leave.",
+        isUser: false,
+        timestamp: new Date(),
+        role: "assistant",
+      },
+    ]);
+  }, []);
 
   useEffect(() => {
     scrollToBottom();
@@ -78,14 +35,8 @@ export default function ChatPage({
   };
 
   const handleSendMessage = async (content: string) => {
-    if (isChatNotFound) {
-      router.push("/chat");
-      return;
-    }
-
     // Reset error state
     setIsError(false);
-    setDebugInfo(null);
 
     // Add user message
     const userMessage: Message = {
@@ -105,7 +56,8 @@ export default function ChatPage({
       const apiMessages = [
         {
           role: "system",
-          content: "You are a helpful, knowledgeable assistant.",
+          content:
+            "You are a helpful, knowledgeable assistant. This is a private chat session where messages are not stored long-term.",
         },
         ...messages.map((msg) => ({
           role: msg.role,
@@ -135,19 +87,11 @@ export default function ChatPage({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          messages: apiMessages,
-          isPrivateMode: false,
-        }),
+        body: JSON.stringify({ messages: apiMessages }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `API request failed with status ${response.status}:`,
-          errorText
-        );
-        throw new Error(`API request failed: ${response.status} ${errorText}`);
+        throw new Error("API request failed");
       }
 
       // Process the streamed response
@@ -205,51 +149,9 @@ export default function ChatPage({
           reader.releaseLock();
         }
       }
-
-      // Only update the chat history once, at the end of the operation
-      try {
-        // This was using the wrong array (messages instead of updatedMessages)
-        // and it wasn't including the assistant's response properly
-        const finalMessages = [...updatedMessages];
-
-        // Update the assistant's message with the full content
-        const assistantMessageIndex = finalMessages.findIndex(
-          (msg) => msg.id === assistantMessageId
-        );
-
-        if (assistantMessageIndex !== -1) {
-          finalMessages[assistantMessageIndex] = {
-            ...finalMessages[assistantMessageIndex],
-            content: fullContent,
-          };
-        }
-
-        console.log(
-          "Updating chat with final content:",
-          fullContent.substring(0, 50) + "..."
-        );
-        console.log("Final message count:", finalMessages.length);
-
-        await updateChatHistory(chatId, finalMessages);
-      } catch (error) {
-        console.error("Error updating chat history:", error);
-        setDebugInfo(
-          `Error updating chat: ${
-            error instanceof Error ? error.message : String(error)
-          }`
-        );
-
-        // If this is a private chat that failed to update, redirect to chat selection
-        if (chatId.startsWith("private-")) {
-          setTimeout(() => router.push("/chat"), 1500);
-        }
-      }
     } catch (error) {
       console.error("Error calling Groq API:", error);
       setIsError(true);
-      setDebugInfo(
-        `API error: ${error instanceof Error ? error.message : String(error)}`
-      );
 
       // Add error message
       const errorMessage: Message = {
@@ -269,23 +171,13 @@ export default function ChatPage({
         errorMessage,
       ];
       setMessages(messagesWithError);
-
-      // Update the chat history only once
-      try {
-        await updateChatHistory(chatId, messagesWithError);
-      } catch (updateError) {
-        console.error(
-          "Error updating chat history after API error:",
-          updateError
-        );
-      }
     } finally {
       setIsLoading(false);
       setIsStreaming(false);
     }
   };
 
-  if (isLoading && messages.length === 0) {
+  if (isLoading && messages.length <= 1) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="animate-spin w-8 h-8 border-2 border-gray-300 border-t-blue-600 rounded-full"></div>
@@ -293,28 +185,32 @@ export default function ChatPage({
     );
   }
 
-  if (isChatNotFound) {
-    return (
-      <div className="flex-1 flex items-center justify-center">
-        <div className="bg-red-50 text-red-700 p-6 rounded-lg max-w-md text-center">
-          <h3 className="text-xl font-semibold mb-2">Chat not found</h3>
-          <p>
-            This chat session could not be found. You will be redirected to the
-            chat selection page.
-          </p>
-          {chatId.startsWith("private-") && (
-            <p className="mt-4 text-sm">
-              Note: Private chats are stored in memory and may not be available
-              after a server restart.
-            </p>
-          )}
-        </div>
-      </div>
-    );
-  }
-
   return (
     <>
+      {/* Private Mode Indicator */}
+      <div className="bg-purple-100 border-b border-purple-200 py-2 px-4 flex items-center">
+        <div className="mr-2 h-5 w-5 flex items-center justify-center rounded-full bg-purple-600 text-white">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+            className="w-3 h-3"
+          >
+            <path
+              fillRule="evenodd"
+              d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z"
+              clipRule="evenodd"
+            />
+          </svg>
+        </div>
+        <span className="text-purple-800 font-medium text-sm">
+          Private Mode
+        </span>
+        <span className="ml-2 text-purple-600 text-xs">
+          Your conversation will not be saved
+        </span>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-4 bg-gray-50">
         {messages.map((message) => (
           <ChatMessage
@@ -329,9 +225,6 @@ export default function ChatPage({
           <div className="flex justify-center my-4">
             <div className="bg-red-50 text-red-700 p-3 rounded-lg max-w-[80%] text-center">
               <p>An error occurred. Please try again.</p>
-              {debugInfo && (
-                <p className="text-xs mt-2 text-red-500">{debugInfo}</p>
-              )}
             </div>
           </div>
         )}
@@ -370,7 +263,7 @@ export default function ChatPage({
 
       <ChatInput
         onSendMessage={handleSendMessage}
-        disabled={isLoading || isStreaming || isChatNotFound}
+        disabled={isLoading || isStreaming}
       />
     </>
   );

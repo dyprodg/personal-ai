@@ -6,6 +6,7 @@ import {
   SignedIn,
   SignedOut,
 } from "@clerk/nextjs";
+import LegalLinksDropdown from "./LegalLinksDropdown";
 
 export default function Navbar() {
   return (
@@ -15,7 +16,8 @@ export default function Navbar() {
         <span>Personal AI</span>
       </Link>
 
-      <div className="flex gap-4">
+      <div className="flex gap-4 items-center">
+        <LegalLinksDropdown />
         <SignedOut>
           <SignInButton mode="modal">
             <button className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900">
