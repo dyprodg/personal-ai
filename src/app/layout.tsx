@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Dyprodg. Personal AI",
-  description: "Your intelligent companion for productivity and creativity",
+  title: "Bloomweaver AI Chat",
+  description: "Advanced AI chat platform focused on intelligent conversations",
 };
 
 export default function RootLayout({

@@ -2,8 +2,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Terms of Service | Dyprodg. Personal AI",
-  description: "Terms of Service for Dyprodg. Personal AI",
+  title: "Terms of Service | Bloomweaver AI Chat",
+  description: "Terms of Service for Bloomweaver AI Chat",
 };
 
 export default function TermsOfService() {
@@ -70,8 +70,8 @@ export default function TermsOfService() {
                   2. Description of Service
                 </h2>
                 <p className="text-gray-600">
-                  Dyprodg. Personal AI is an intelligent companion for
-                  productivity and creativity. We provide AI-powered chat
+                  Bloomweaver AI Chat is an advanced AI chat platform focused on
+                  intelligent conversations. We provide AI-powered chat
                   capabilities for various use cases.
                 </p>
               </div>

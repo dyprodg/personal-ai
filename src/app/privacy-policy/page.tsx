@@ -2,8 +2,8 @@ import { Metadata } from "next";
 import Link from "next/link";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy | Dyprodg. Personal AI",
-  description: "Privacy Policy for Dyprodg. Personal AI",
+  title: "Privacy Policy | Bloomweaver AI Chat",
+  description: "Privacy Policy for Bloomweaver AI Chat",
 };
 
 export default function PrivacyPolicy() {
