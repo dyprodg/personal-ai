@@ -1,9 +1,19 @@
 import Link from "next/link";
+import Image from "next/image";
 
 export default function Home() {
   return (
     <div className="flex flex-col items-center justify-center min-h-[calc(100vh-4rem)] p-6 text-center">
       <div className="max-w-3xl mx-auto">
+        <div className="flex justify-center mb-6">
+          <Image
+            src="/bloomweaver_logo.svg"
+            alt="Bloomweaver Logo"
+            width={200}
+            height={200}
+            priority
+          />
+        </div>
         <h1 className="text-5xl md:text-7xl font-bold mb-6">
           <span className="bg-gradient-to-r from-blue-600 to-violet-600 text-transparent bg-clip-text">
             Bloomweaver
