@@ -2,10 +2,19 @@
 
 import { useState, useRef, useEffect, use } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import ChatInput from "@/components/ChatInput";
 import ChatMessage from "@/components/ChatMessage";
+import ModelSelector from "@/components/ModelSelector";
 import { getChatHistory, updateChatHistory } from "@/actions/chat";
+import { streamChatCompletion } from "@/actions/chat-stream";
 import { Message } from "@/types/chat";
+import { ModelTier } from "@/lib/groq-models";
+import {
+  getUserTier,
+  getTierUpgradeInfo,
+  formatTierName,
+} from "@/lib/user-tier";
 
 export default function ChatPage({
   params,
@@ -13,14 +22,38 @@ export default function ChatPage({
   params: Promise<{ chatId: string }>;
 }) {
   const { chatId } = use(params);
+  const { userId } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isError, setIsError] = useState(false);
   const [isChatNotFound, setIsChatNotFound] = useState(false);
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState("llama-3.1-8b-instant");
+  const [userTier, setUserTier] = useState<ModelTier>("free"); // Default until loaded
+  const [tierUpgradeInfo, setTierUpgradeInfo] = useState({
+    canUpgrade: false,
+    upgradeText: "Upgrade",
+  });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // Load user tier
+  useEffect(() => {
+    async function loadUserTier() {
+      if (userId) {
+        try {
+          const tier = await getUserTier(userId);
+          setUserTier(tier);
+          setTierUpgradeInfo(getTierUpgradeInfo(tier));
+        } catch (error) {
+          console.error("Failed to load user tier:", error);
+        }
+      }
+    }
+
+    loadUserTier();
+  }, [userId]);
 
   // Load chat history
   useEffect(() => {
@@ -40,7 +73,7 @@ export default function ChatPage({
           }
           return;
         }
-        
+
         if (chat.messages && chat.messages.length > 0) {
           console.log(
             `First message content: "${chat.messages[0].content.substring(
@@ -127,81 +160,65 @@ export default function ChatPage({
       setIsLoading(false);
       setIsStreaming(true);
 
-      // Call the API with streaming
-      const response = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          messages: apiMessages,
-          isPrivateMode: false,
-        }),
+      // Call the server action for streaming with selected model
+      const stream = await streamChatCompletion({
+        messages: apiMessages,
+        isPrivateMode: false,
+        model: selectedModel,
       });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(
-          `API request failed with status ${response.status}:`,
-          errorText
-        );
-        throw new Error(`API request failed: ${response.status} ${errorText}`);
-      }
-
       // Process the streamed response
-      const reader = response.body?.getReader();
+      const reader = stream.getReader();
       const decoder = new TextDecoder();
       let fullContent = "";
       let buffer = ""; // Buffer for incomplete JSON chunks
 
-      if (reader) {
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
 
-            const chunk = decoder.decode(value, { stream: true });
-            buffer += chunk;
+          const chunk = decoder.decode(value, { stream: true });
+          buffer += chunk;
 
-            // Process complete lines in the buffer
-            const lines = buffer.split("\n");
-            // Keep the last (potentially incomplete) line in the buffer
-            buffer = lines.pop() || "";
+          // Process complete lines in the buffer
+          const lines = buffer.split("\n");
+          // Keep the last (potentially incomplete) line in the buffer
+          buffer = lines.pop() || "";
 
-            for (const line of lines) {
-              const trimmedLine = line.trim();
-              if (!trimmedLine) continue;
+          for (const line of lines) {
+            const trimmedLine = line.trim();
+            if (!trimmedLine) continue;
 
-              if (trimmedLine.startsWith("data: ")) {
-                const data = trimmedLine.substring(6);
-                if (data === "[DONE]") continue;
+            if (trimmedLine.startsWith("data: ")) {
+              const data = trimmedLine.substring(6);
+              if (data === "[DONE]") continue;
 
-                try {
-                  const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content || "";
-                  if (content) {
-                    fullContent += content;
-                    setMessages((prevMessages) =>
-                      prevMessages.map((msg) =>
-                        msg.id === assistantMessageId
-                          ? { ...msg, content: fullContent }
-                          : msg
-                      )
-                    );
-                  }
-                } catch (e) {
-                  console.error("Error parsing JSON:", e, "Data:", data);
-                  // Continue processing other lines even if one fails
+              try {
+                const parsed = JSON.parse(data);
+                const content = parsed.choices?.[0]?.delta?.content || "";
+                if (content) {
+                  fullContent += content;
+                  setMessages((prevMessages) =>
+                    prevMessages.map((msg) =>
+                      msg.id === assistantMessageId
+                        ? { ...msg, content: fullContent }
+                        : msg
+                    )
+                  );
                 }
+              } catch (e) {
+                console.error("Error parsing JSON:", e, "Data:", data);
+                // Continue processing other lines even if one fails
               }
             }
           }
-        } catch (error) {
-          console.error("Error while reading stream:", error);
-          // Don't rethrow here, we already have partial content to save
-        } finally {
-          reader.releaseLock();
         }
+      } catch (error) {
+        console.error("Error while reading stream:", error);
+        // Don't rethrow here, we already have partial content to save
+      } finally {
+        reader.releaseLock();
       }
 
       // Only update the chat history once, at the end of the operation
@@ -243,7 +260,7 @@ export default function ChatPage({
         }
       }
     } catch (error) {
-      console.error("Error calling Groq API:", error);
+      console.error("Error calling chat API:", error);
       setIsError(true);
       setDebugInfo(
         `API error: ${error instanceof Error ? error.message : String(error)}`
@@ -313,6 +330,27 @@ export default function ChatPage({
 
   return (
     <>
+      {/* Model selector */}
+      <div className="border-b border-gray-200 bg-white p-2">
+        <div className="max-w-3xl mx-auto flex items-center">
+          <div className="w-48 mr-2">
+            <ModelSelector
+              selectedModel={selectedModel}
+              onModelChange={setSelectedModel}
+              userTier={userTier}
+            />
+          </div>
+          <div className="text-xs text-gray-500">
+            <span>
+              {formatTierName(userTier)} tier ·
+              <a href="#" className="text-blue-600 hover:underline ml-1">
+                {tierUpgradeInfo.upgradeText}
+              </a>
+            </span>
+          </div>
+        </div>
+      </div>
+
       <div className="flex-1 overflow-y-auto p-3 sm:p-4 bg-gray-50">
         {messages.map((message) => (
           <ChatMessage
