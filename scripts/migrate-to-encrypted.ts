@@ -8,11 +8,6 @@
 import { migrateChatsToEncrypted } from '../src/lib/migrate-encryption';
 
 async function main() {
-  console.log('=== Chat Encryption Migration Tool ===');
-  console.log('This will migrate all existing Redis chat data to encrypted format');
-  console.log('Make sure ENCRYPTION_KEY is set in your environment variables');
-  console.log('');
-  
   // Simple confirmation to prevent accidental runs
   const readline = require('readline').createInterface({
     input: process.stdin,

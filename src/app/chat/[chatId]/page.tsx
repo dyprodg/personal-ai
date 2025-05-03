@@ -10,11 +10,8 @@ import { getChatHistory, updateChatHistory } from "@/actions/chat";
 import { streamChatCompletion } from "@/actions/chat-stream";
 import { Message } from "@/types/chat";
 import { ModelTier } from "@/lib/groq-models";
-import {
-  getUserTier,
-  getTierUpgradeInfo,
-  formatTierName,
-} from "@/lib/user-tier";
+import { getTierUpgradeInfo, formatTierName } from "@/lib/user-tier";
+import { getUserTierAction } from "@/actions/user-tier-action";
 
 export default function ChatPage({
   params,
@@ -31,6 +28,7 @@ export default function ChatPage({
   const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState("llama-3.1-8b-instant");
   const [userTier, setUserTier] = useState<ModelTier>("free"); // Default until loaded
+  const [tierLoaded, setTierLoaded] = useState(false); // Track if tier has been loaded
   const [tierUpgradeInfo, setTierUpgradeInfo] = useState({
     canUpgrade: false,
     upgradeText: "Upgrade",
@@ -43,8 +41,9 @@ export default function ChatPage({
     async function loadUserTier() {
       if (userId) {
         try {
-          const tier = await getUserTier(userId);
+          const tier = await getUserTierAction(userId);
           setUserTier(tier);
+          setTierLoaded(true);
           setTierUpgradeInfo(getTierUpgradeInfo(tier));
         } catch (error) {
           console.error("Failed to load user tier:", error);
@@ -63,24 +62,13 @@ export default function ChatPage({
 
         if (!chat) {
           console.error(`Chat not found: ${chatId}`);
-          // Chat not found or unauthorized
           setIsChatNotFound(true);
-          // For private chats, redirect after a short delay to show error
           if (chatId.startsWith("private-")) {
             setTimeout(() => router.push("/chat"), 1500);
           } else {
             router.push("/chat");
           }
           return;
-        }
-
-        if (chat.messages && chat.messages.length > 0) {
-          console.log(
-            `First message content: "${chat.messages[0].content.substring(
-              0,
-              50
-            )}..."`
-          );
         }
 
         setMessages(chat.messages);
@@ -208,26 +196,20 @@ export default function ChatPage({
                   );
                 }
               } catch (e) {
-                console.error("Error parsing JSON:", e, "Data:", data);
-                // Continue processing other lines even if one fails
+                console.error("Error parsing JSON:", e);
               }
             }
           }
         }
       } catch (error) {
         console.error("Error while reading stream:", error);
-        // Don't rethrow here, we already have partial content to save
       } finally {
         reader.releaseLock();
       }
 
-      // Only update the chat history once, at the end of the operation
       try {
-        // This was using the wrong array (messages instead of updatedMessages)
-        // and it wasn't including the assistant's response properly
         const finalMessages = [...updatedMessages];
 
-        // Update the assistant's message with the full content
         const assistantMessageIndex = finalMessages.findIndex(
           (msg) => msg.id === assistantMessageId
         );
@@ -239,12 +221,6 @@ export default function ChatPage({
           };
         }
 
-        console.log(
-          "Updating chat with final content:",
-          fullContent.substring(0, 50) + "..."
-        );
-        console.log("Final message count:", finalMessages.length);
-
         await updateChatHistory(chatId, finalMessages);
       } catch (error) {
         console.error("Error updating chat history:", error);
@@ -254,7 +230,6 @@ export default function ChatPage({
           }`
         );
 
-        // If this is a private chat that failed to update, redirect to chat selection
         if (chatId.startsWith("private-")) {
           setTimeout(() => router.push("/chat"), 1500);
         }
@@ -285,7 +260,6 @@ export default function ChatPage({
       ];
       setMessages(messagesWithError);
 
-      // Update the chat history only once
       try {
         await updateChatHistory(chatId, messagesWithError);
       } catch (updateError) {
@@ -334,6 +308,9 @@ export default function ChatPage({
       <div className="border-b border-gray-200 bg-white p-2">
         <div className="max-w-3xl mx-auto flex items-center">
           <div className="w-48 mr-2">
+            <div data-user-tier={userTier} className="hidden">
+              Tier debug
+            </div>
             <ModelSelector
               selectedModel={selectedModel}
               onModelChange={setSelectedModel}
@@ -342,7 +319,7 @@ export default function ChatPage({
           </div>
           <div className="text-xs text-gray-500">
             <span>
-              {formatTierName(userTier)} tier ·
+              {tierLoaded ? formatTierName(userTier) : "Loading..."} tier ·
               <a href="#" className="text-blue-600 hover:underline ml-1">
                 {tierUpgradeInfo.upgradeText}
               </a>

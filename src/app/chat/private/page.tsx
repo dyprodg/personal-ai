@@ -8,7 +8,8 @@ import ModelSelector from "@/components/ModelSelector";
 import { streamChatCompletion } from "@/actions/chat-stream";
 import { Message } from "@/types/chat";
 import { ModelTier } from "@/lib/groq-models";
-import { getUserTier, getTierUpgradeInfo } from "@/lib/user-tier";
+import { getTierUpgradeInfo, formatTierName } from "@/lib/user-tier";
+import { getUserTierAction } from "@/actions/user-tier-action";
 
 export default function PrivateChatPage() {
   const { userId } = useAuth();
@@ -18,6 +19,7 @@ export default function PrivateChatPage() {
   const [isError, setIsError] = useState(false);
   const [selectedModel, setSelectedModel] = useState("llama-3.1-8b-instant");
   const [userTier, setUserTier] = useState<ModelTier>("free"); // Default until loaded
+  const [tierLoaded, setTierLoaded] = useState(false); // Track if tier has been loaded
   const [tierUpgradeInfo, setTierUpgradeInfo] = useState({
     canUpgrade: false,
     upgradeText: "Upgrade",
@@ -43,8 +45,9 @@ export default function PrivateChatPage() {
     async function loadUserTier() {
       if (userId) {
         try {
-          const tier = await getUserTier(userId);
+          const tier = await getUserTierAction(userId);
           setUserTier(tier);
+          setTierLoaded(true);
           setTierUpgradeInfo(getTierUpgradeInfo(tier));
         } catch (error) {
           console.error("Failed to load user tier:", error);
@@ -236,19 +239,23 @@ export default function PrivateChatPage() {
 
           <div className="sm:ml-auto flex items-center">
             <div className="w-48 mr-2">
+              <div data-user-tier={userTier} className="hidden">
+                Tier debug
+              </div>
               <ModelSelector
                 selectedModel={selectedModel}
                 onModelChange={setSelectedModel}
                 userTier={userTier}
               />
             </div>
-            {tierUpgradeInfo.canUpgrade && (
-              <div className="text-xs text-purple-600">
-                <a href="#" className="hover:underline">
+            <div className="text-xs text-purple-600">
+              {tierLoaded ? formatTierName(userTier) : "Loading..."} tier ·
+              {tierUpgradeInfo.canUpgrade && (
+                <a href="#" className="hover:underline ml-1">
                   {tierUpgradeInfo.upgradeText}
                 </a>
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

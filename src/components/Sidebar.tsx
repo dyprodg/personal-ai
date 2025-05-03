@@ -10,6 +10,7 @@ import {
   deleteChatHistory,
 } from "@/actions/chat";
 import { ChatHistoryPreview } from "@/types/chat";
+import UsageDisplay from "./UsageDisplay";
 
 export default function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
@@ -359,6 +360,14 @@ export default function Sidebar() {
                   ))}
                 </ul>
               )}
+            </div>
+
+            {/* Usage display at the bottom with debug info */}
+            <div className="border-t p-3 bg-gray-50">
+              <div className="mb-2 text-xs text-gray-500">
+                <span>[Sidebar] Rendering UsageDisplay</span>
+              </div>
+              <UsageDisplay />
             </div>
           </>
         ) : null}

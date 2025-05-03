@@ -7,7 +7,8 @@ import {
   isModelAvailableForTier, 
   getModelIdsForTier 
 } from '@/lib/groq-models';
-import { getUserTier } from '@/lib/user-tier';
+import { getUserTierAction } from './user-tier-action';
+import { checkAndDecrementUserLimit } from './user-limits';
 
 // Define types for Groq API
 type Message = {
@@ -35,11 +36,17 @@ export async function streamChatCompletion(request: ChatRequest) {
     const { messages, isPrivateMode = false, model = "llama-3.1-8b-instant" } = request;
     
     // Check user tier to confirm model access
-    const userTier = await getUserTier(userId);
+    const userTier = await getUserTierAction(userId);
     
     // Validate if the requested model is available for this user's tier
     if (!isModelAvailableForTier(model, userTier)) {
-      throw new Error(`Model ${model} is not available in your ${userTier} tier`);
+      throw new Error(`Model not available in your tier`);
+    }
+
+    // Check and decrement user's message limit
+    const limitCheck = await checkAndDecrementUserLimit(userId);
+    if (!limitCheck.success) {
+      throw new Error(limitCheck.error || "You've reached your message limit for this month");
     }
 
     // Track estimated input tokens (prompt)
@@ -58,7 +65,7 @@ export async function streamChatCompletion(request: ChatRequest) {
       },
       body: JSON.stringify({
         messages: messages,
-        model: model, // Use the requested model
+        model: model,
         temperature: 0.7,
         max_tokens: 4096,
         stream: true
@@ -67,7 +74,7 @@ export async function streamChatCompletion(request: ChatRequest) {
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error?.message || 'Error from Groq API');
+      throw new Error(errorData.error?.message || 'Error from API');
     }
 
     // Use ReadableStream to track completion tokens
@@ -88,13 +95,11 @@ export async function streamChatCompletion(request: ChatRequest) {
             const { done, value } = await reader.read();
             
             if (done) {
-              // Handle completion token tracking at the end of stream
               if (completionTokens === 0 && fullContent.length > 0) {
                 completionTokens = await estimateTokenCount(fullContent);
               }
               
               if (completionTokens > 0) {
-                console.log(`Recording ${completionTokens} completion tokens at end of stream`);
                 await recordMessageStats(completionTokens, isPrivateMode);
               }
               
@@ -102,37 +107,31 @@ export async function streamChatCompletion(request: ChatRequest) {
               break;
             }
             
-            // Pass through the chunk to the client
             controller.enqueue(value);
             
-            // Process for token tracking
             const text = new TextDecoder().decode(value);
             if (text.includes('data: ')) {
               try {
                 const jsonStr = text.replace('data: ', '').trim();
-                if (jsonStr === '[DONE]') {
-                  // End of stream marker
-                } else {
-                  const data = JSON.parse(jsonStr);
-                  const content = data.choices?.[0]?.delta?.content || '';
-                  
-                  // Accumulate full content for later token estimation
-                  if (content) {
-                    fullContent += content;
-                  }
+                if (jsonStr === '[DONE]') continue;
 
-                  // If there's a usage object in the response, use that instead of our estimates
-                  if (data.usage?.completion_tokens) {
-                    completionTokens = data.usage.completion_tokens;
-                  }
+                const parsed = JSON.parse(jsonStr);
+                const content = parsed.choices?.[0]?.delta?.content || '';
+                
+                if (content) {
+                  fullContent += content;
                 }
-              } catch {
+
+                if (parsed.usage?.completion_tokens) {
+                  completionTokens = parsed.usage.completion_tokens;
+                }
+              } catch (e) {
                 // Ignore parsing errors for partial chunks
               }
             }
           }
         } catch (error) {
-          console.error('Error in stream processing:', error);
+          console.error('Stream error occurred');
           controller.error(error);
         } finally {
           reader.releaseLock();
@@ -140,7 +139,7 @@ export async function streamChatCompletion(request: ChatRequest) {
       }
     });
   } catch (error: unknown) {
-    console.error('Error in chat stream action:', error);
+    console.error('Chat error occurred');
     throw error;
   }
 } 
