@@ -364,9 +364,6 @@ export default function Sidebar() {
 
             {/* Usage display at the bottom with debug info */}
             <div className="border-t p-3 bg-gray-50">
-              <div className="mb-2 text-xs text-gray-500">
-                <span>[Sidebar] Rendering UsageDisplay</span>
-              </div>
               <UsageDisplay />
             </div>
           </>
