@@ -43,6 +43,11 @@ export function decrypt<T>(encryptedData: string): T {
     throw new Error('ENCRYPTION_KEY environment variable is not set');
   }
   
+  // Check if encryptedData is a string
+  if (typeof encryptedData !== 'string') {
+    throw new TypeError('encryptedData is not a string');
+  }
+  
   // Split the IV and encrypted data
   const parts = encryptedData.split(':');
   if (parts.length !== 2) {

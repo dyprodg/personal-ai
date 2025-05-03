@@ -114,6 +114,11 @@ export async function getChatHistory(chatId: string): Promise<ChatHistory | null
   if (!encryptedChat) return null;
   
   try {
+    // Ensure we have a string before trying to decrypt
+    if (typeof encryptedChat !== 'string') {
+      console.error(`Invalid data type for chat ${chatId}: expected string, got ${typeof encryptedChat}`);
+      throw new Error('Invalid chat data format');
+    }
     return decrypt<ChatHistory>(encryptedChat);
   } catch (error) {
     console.error(`Error decrypting chat ${chatId}:`, error);
@@ -305,6 +310,11 @@ export async function updateChatHistory(
     // Decrypt the chat
     let chat: ChatHistory;
     try {
+      // Ensure we have a string before trying to decrypt
+      if (typeof encryptedChat !== 'string') {
+        console.error(`Invalid data type for chat ${chatId}: expected string, got ${typeof encryptedChat}`);
+        throw new Error('Invalid chat data format');
+      }
       chat = decrypt<ChatHistory>(encryptedChat);
     } catch (error) {
       console.error(`Failed to decrypt chat ${chatId}:`, error);
@@ -377,6 +387,11 @@ export async function renameChatHistory(chatId: string, title: string): Promise<
   // Decrypt the chat
   let chat: ChatHistory;
   try {
+    // Ensure we have a string before trying to decrypt
+    if (typeof encryptedChat !== 'string') {
+      console.error(`Invalid data type for chat ${chatId}: expected string, got ${typeof encryptedChat}`);
+      throw new Error('Invalid chat data format');
+    }
     chat = decrypt<ChatHistory>(encryptedChat);
   } catch (error) {
     console.error(`Failed to decrypt chat ${chatId}:`, error);
