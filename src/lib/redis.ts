@@ -102,7 +102,6 @@ class LocalStorageFallback {
 
 // Get the Redis URL from environment variables
 function getRedisUrl(): string | undefined {
-  // Try different common environment variable names
   return process.env.KV_REST_API_URL || 
          process.env.KV_URL || 
          process.env.REDIS_URL || 
@@ -111,7 +110,6 @@ function getRedisUrl(): string | undefined {
 
 // Get the Redis token from environment variables
 function getRedisToken(): string | undefined {
-  // Try different common environment variable names
   return process.env.KV_REST_API_TOKEN || 
          process.env.KV_REST_API_READ_ONLY_TOKEN || 
          process.env.UPSTASH_REDIS_REST_TOKEN;
@@ -121,35 +119,25 @@ function getRedisToken(): string | undefined {
 function hasRedisCredentials(): boolean {
   const url = getRedisUrl();
   const token = getRedisToken();
-  
-  const hasCredentials = !!(url && token);
-  
-  if (!hasCredentials) {
-    console.warn('⚠️ Redis credentials are missing. Using local storage fallback.');
-  }
-  
-  return hasCredentials;
+  return !!(url && token);
 }
 
 // Create Redis client
 function createRedisClient() {
   try {
     if (hasRedisCredentials()) {
-      // Create upstash Redis client with explicit parameters
-      const redisClient = new Redis({
+      return new Redis({
         url: getRedisUrl()!,
         token: getRedisToken()!,
       });
-      
-      return redisClient;
     } else {
       return new LocalStorageFallback();
     }
   } catch (error) {
-    console.error('❌ Failed to initialize Redis client:', error);
+    console.error('Failed to initialize Redis client:', error);
     return new LocalStorageFallback();
   }
 }
 
 // Initialize Redis client once
-export const redis = createRedisClient(); 
+export const redis = createRedisClient();
